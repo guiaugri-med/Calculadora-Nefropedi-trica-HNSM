@@ -20,6 +20,21 @@ with st.sidebar:
             "Adolescente Masculino (K=0.70)"
         ]
     )
+
+with st.sidebar:
+    st.divider()
+    st.error("🚨 **Sinais de Alerta (Red Flags)**")
+    with st.expander("Quando chamar o Nefropediatra:"):
+        st.write("""
+        - **Oligúria/Anúria:** Débito urinário < 1 mL/kg/h após hidratação.
+        - **Hematúria Macroscópica:** Risco de Trombose da Veia Renal.
+        - **Crise Hipertensiva:** PA > percentil 95 + 12 mmHg para idade/estatura.
+        - **Abdome Agudo:** Suspeita de Peritonite Bacteriana Espontânea (PBE).
+        - **Dispneia:** Risco de edema pulmonar ou derrame pleural volumoso.
+        - **Assimetria de MMII:** Dor ou edema unilateral (risco de TVP).
+        - **Corticorresistência:** Persistência de proteinúria 4+ após 8 semanas.
+        """)
+        
     
     # Mapeamento da constante K conforme solicitado
     mapa_k = {
