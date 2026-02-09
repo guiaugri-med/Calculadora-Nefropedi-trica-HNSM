@@ -12,12 +12,10 @@ st.set_page_config(page_title="NefroPed - Mercês", page_icon="🩺", layout="wi
 def init_db():
     conn = sqlite3.connect('nefroped_merces.db')
     c = conn.cursor()
-    # Tabela de pacientes e cálculos iniciais
     c.execute('''CREATE TABLE IF NOT EXISTS pacientes 
                  (id INTEGER PRIMARY KEY, nome TEXT, leito TEXT, data_admissao TEXT, 
                   anos INTEGER, meses INTEGER, dias INTEGER, sexo TEXT, k REAL, 
                   peso_seco REAL, estatura REAL, sc REAL, tfge REAL, dose_ataque REAL)''')
-    # Tabela de monitorização diária
     c.execute('''CREATE TABLE IF NOT EXISTS monitorizacao 
                  (id INTEGER PRIMARY KEY, paciente_id INTEGER, data TEXT, hora TEXT, 
                   peso REAL, pa TEXT, fc INTEGER, fr INTEGER, temp REAL)''')
@@ -26,168 +24,147 @@ def init_db():
 
 init_db()
 
-# --- FUNÇÕES DE PDF ---
+# --- FUNÇÕES DE PDF (CORRIGIDA) ---
 class PDF(FPDF):
     def header(self):
+        # Título do Hospital e Setor conforme solicitado
         self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, 'Hospital Nossa Senhora das Mercês - Setor Pediatria', 0, 1, 'C')
+        self.cell(0, 10, 'Ficha de Monitorização Vascular e Metabólica', 0, 1, 'C')
         self.set_font('Arial', '', 10)
-        self.cell(0, 5, 'Ficha de Monitorização Vascular e Metabólica', 0, 1, 'C')
+        self.cell(0, 5, 'Setor: Pediatria - Hospital Nossa Senhora das Mercês', 0, 1, 'C')
         self.ln(10)
 
-def gerar_pdf(dados_paciente, historico_clinico):
+def gerar_pdf(dados, historico):
     pdf = PDF()
     pdf.add_page()
     pdf.set_font("Arial", size=10)
     
-    # Cabeçalho do Paciente
-    pdf.cell(0, 10, f"Nome: {dados_paciente['nome']} | Leito: {dados_paciente['leito']}", ln=True)
-    pdf.cell(0, 10, f"Data de Admissão: {dados_paciente['data_admissao']} | SC: {dados_paciente['sc']:.2f} m2", ln=True)
+    # Cabeçalho do Paciente (Layout solicitado)
+    pdf.cell(0, 8, f"Nome do Doente: {dados['nome']}", ln=True)
+    pdf.cell(0, 8, f"Leito: {dados['leito']} | Data de Admissão: {dados['data_admissao']}", ln=True)
+    pdf.cell(0, 8, f"Peso na Admissão (Seco): {dados['peso_seco']} kg | Superfície Corporal: {dados['sc']:.2f} m2", ln=True)
     pdf.ln(5)
     
-    # Tabela de Sinais Vitais
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(20, 10, 'Hora', 1)
-    pdf.cell(30, 10, 'Peso (kg)', 1)
-    pdf.cell(30, 10, 'PA (mmHg)', 1)
-    pdf.cell(30, 10, 'FC (bpm)', 1)
-    pdf.cell(30, 10, 'FR (irpm)', 1)
-    pdf.cell(30, 10, 'Temp (C)', 1)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(0, 10, "1. Controlo de Sinais Vitais e Antropometria", ln=True)
+    pdf.set_font("Arial", size=9)
+    pdf.multi_cell(0, 5, "Monitorizar a Pressão Arterial (PA) pelo menos 3x ao dia devido ao risco de hipertensão associada à corticoterapia e doença renal.")
+    pdf.ln(5)
+    
+    # Tabela de Monitorização
+    pdf.set_font('Arial', 'B', 9)
+    cols = [('Data', 25), ('Hora', 20), ('Peso (kg)', 25), ('PA', 30), ('FC', 25), ('FR', 25), ('Temp', 25)]
+    for name, width in cols:
+        pdf.cell(width, 8, name, 1, 0, 'C')
     pdf.ln()
     
-    pdf.set_font('Arial', '', 10)
-    for _, row in historico_clinico.iterrows():
-        pdf.cell(20, 10, str(row['hora']), 1)
-        pdf.cell(30, 10, str(row['peso']), 1)
-        pdf.cell(30, 10, str(row['pa']), 1)
-        pdf.cell(30, 10, str(row['fc']), 1)
-        pdf.cell(30, 10, str(row['fr']), 1)
-        pdf.cell(30, 10, str(row['temp']), 1)
+    pdf.set_font('Arial', size=9)
+    for _, row in historico.iterrows():
+        pdf.cell(25, 8, str(row['data']), 1, 0, 'C')
+        pdf.cell(20, 8, str(row['hora']), 1, 0, 'C')
+        pdf.cell(25, 8, f"{row['peso']:.2f}", 1, 0, 'C')
+        pdf.cell(30, 8, str(row['pa']), 1, 0, 'C')
+        pdf.cell(25, 8, str(row['fc']), 1, 0, 'C')
+        pdf.cell(25, 8, str(row['fr']), 1, 0, 'C')
+        pdf.cell(25, 8, f"{row['temp']:.1f}", 1, 0, 'C')
         pdf.ln()
         
-    return pdf.output(dest='S').encode('latin-1')
+    # O CORTE DO ERRO: Removido dest='S' e .encode()
+    return pdf.output()
 
 # --- INTERFACE ---
 st.title("🩺 Gestão de Nefrologia Pediátrica")
 
-aba_calc, aba_monitor, aba_busca = st.tabs(["🔢 Calculadora e Cadastro", "📋 Ficha de Monitorização", "🔎 Histórico de Pacientes"])
+aba_calc, aba_monitor, aba_busca = st.tabs(["🔢 Calculadora e Cadastro", "📋 Monitorização Diária", "🔎 Histórico e PDF"])
 
-# --- ABA 1: CALCULADORA E CADASTRO ---
+# --- ABA 1: CÁLCULO E CADASTRO ---
 with aba_calc:
-    with st.form("cadastro_paciente"):
-        col_id1, col_id2 = st.columns(2)
-        nome = col_id1.text_input("Nome do Doente")
-        leito = col_id2.text_input("Leito")
-        data_adm = st.date_input("Data de Admissão")
+    with st.form("cadastro"):
+        col1, col2 = st.columns(2)
+        nome = col1.text_input("Nome do Doente").upper()
+        leito = col2.text_input("Leito")
+        data_adm = st.date_input("Data de Admissão", value=datetime.now())
         
-        st.divider()
-        col_id3, col_id4, col_id5 = st.columns(3)
-        anos = col_id3.number_input("Anos", 0, 18, 5)
-        meses = col_id4.number_input("Meses", 0, 11, 0)
-        dias = col_id5.number_input("Dias", 0, 30, 0)
+        st.write("**Idade:**")
+        c1, c2, c3 = st.columns(3)
+        anos = c1.number_input("Anos", 0, 18, 5)
+        meses = c2.number_input("Meses", 0, 11, 0)
+        dias = c3.number_input("Dias", 0, 30, 0)
         
         sexo = st.radio("Sexo Biológico", ["Feminino", "Masculino"], horizontal=True)
         
-        # Lógica de K
-        idade_meses = (anos * 12) + meses
-        if idade_meses < 12:
+        if (anos * 12 + meses) < 12:
             prematuro = st.checkbox("Nasceu prematuro?")
             k = 0.33 if prematuro else 0.45
         else:
             k = 0.70 if (sexo == "Masculino" and anos >= 13) else 0.55
             
-        col_cli1, col_cli2, col_cli3 = st.columns(3)
-        peso_seco = col_cli1.number_input("Peso na Admissão (kg)", 1.0, 150.0, 20.0)
-        estatura = col_cli2.number_input("Estatura (cm)", 30.0, 200.0, 110.0)
-        creatinina = col_cli3.number_input("Creatinina (mg/dL)", 0.1, 10.0, 0.6)
+        peso_seco = st.number_input("Peso na Admissão (kg)", 1.0, 150.0, 20.0)
+        estatura = st.number_input("Estatura (cm)", 30.0, 200.0, 110.0)
+        creatinina = st.number_input("Creatinina (mg/dL)", 0.1, 10.0, 0.6)
         
-        btn_salvar = st.form_submit_button("Calcular e Salvar Cadastro")
-
-    if btn_salvar:
-        sc = math.sqrt((peso_seco * estatura) / 3600)
-        tfge = (k * estatura) / creatinina
-        dose_ataque = min(sc * 60, 60.0)
-        
-        conn = sqlite3.connect('nefroped_merces.db')
-        c = conn.cursor()
-        c.execute("INSERT INTO pacientes (nome, leito, data_admissao, anos, meses, dias, sexo, k, peso_seco, estatura, sc, tfge, dose_ataque) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", 
-                  (nome.upper(), leito, data_adm.strftime("%d/%m/%Y"), anos, meses, dias, sexo, k, peso_seco, estatura, sc, tfge, dose_ataque))
-        conn.commit()
-        conn.close()
-        st.success(f"Paciente {nome} cadastrado com sucesso! SC: {sc:.2f} m² | TFGe: {tfge:.1f}")
-
-# --- ABA 2: FICHA DE MONITORIZAÇÃO ---
-with aba_monitor:
-    conn = sqlite3.connect('nefroped_merces.db')
-    lista_pacientes = pd.read_sql("SELECT id, nome, leito FROM pacientes", conn)
-    conn.close()
-    
-    if not lista_pacientes.empty:
-        escolha = st.selectbox("Selecione o Paciente para Evolução", 
-                               lista_pacientes['nome'] + " (Leito: " + lista_pacientes['leito'] + ")")
-        paciente_id = int(lista_pacientes[lista_pacientes['nome'] == escolha.split(" (")[0]]['id'].iloc[0])
-        
-        st.subheader("Inserir Sinais Vitais")
-        with st.form("ficha_diaria"):
-            col_f1, col_f2 = st.columns(2)
-            data_sv = col_f1.date_input("Data do Registro")
-            hora_sv = col_f2.selectbox("Hora", ["08:00", "14:00", "20:00"])
+        if st.form_submit_button("Salvar Cadastro"):
+            sc = math.sqrt((peso_seco * estatura) / 3600)
+            tfge = (k * estatura) / creatinina
+            dose_ataque = min(sc * 60, 60.0)
             
-            col_f3, col_f4, col_f5, col_f6, col_f7 = st.columns(5)
-            p_sv = col_f3.number_input("Peso (kg)", 0.0, 150.0)
-            pa_sv = col_f4.text_input("PA (mmHg)", placeholder="110/70")
-            fc_sv = col_f5.number_input("FC (bpm)", 0, 200)
-            fr_sv = col_f6.number_input("FR (irpm)", 0, 60)
-            t_sv = col_f7.number_input("Temp (ºC)", 30.0, 42.0, 36.5)
-            
-            btn_sv = st.form_submit_button("Salvar Registro")
-            
-        if btn_sv:
             conn = sqlite3.connect('nefroped_merces.db')
             c = conn.cursor()
-            c.execute("INSERT INTO monitorizacao (paciente_id, data, hora, peso, pa, fc, fr, temp) VALUES (?,?,?,?,?,?,?,?)",
-                      (paciente_id, data_sv.strftime("%d/%m/%Y"), hora_sv, p_sv, pa_sv, fc_sv, fr_sv, t_sv))
+            c.execute("INSERT INTO pacientes (nome, leito, data_admissao, anos, meses, dias, sexo, k, peso_seco, estatura, sc, tfge, dose_ataque) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", 
+                      (nome, leito, data_adm.strftime("%d/%m/%Y"), anos, meses, dias, sexo, k, peso_seco, estatura, sc, tfge, dose_ataque))
             conn.commit()
             conn.close()
-            st.success("Sinais vitais registrados!")
+            st.success(f"Paciente {nome} salvo com sucesso!")
+
+# --- ABA 2: MONITORIZAÇÃO ---
+with aba_monitor:
+    conn = sqlite3.connect('nefroped_merces.db')
+    pacs = pd.read_sql("SELECT id, nome, leito FROM pacientes", conn)
+    conn.close()
+    
+    if not pacs.empty:
+        escolha = st.selectbox("Selecione o Paciente", pacs['nome'] + " (Leito: " + pacs['leito'] + ")")
+        pac_id = int(pacs[pacs['nome'] == escolha.split(" (")[0]]['id'].iloc[0])
+        
+        with st.form("vitais"):
+            c1, c2 = st.columns(2)
+            d_sv = c1.date_input("Data")
+            h_sv = c2.selectbox("Hora", ["08:00", "14:00", "20:00"])
+            
+            v1, v2, v3, v4, v5 = st.columns(5)
+            p_v = v1.number_input("Peso (kg)", 0.0)
+            pa_v = v2.text_input("PA (mmHg)")
+            fc_v = v3.number_input("FC (bpm)", 0)
+            fr_v = v4.number_input("FR (irpm)", 0)
+            t_v = v5.number_input("Temp (C)", 30.0, 42.0, 36.5)
+            
+            if st.form_submit_button("Registrar Sinais Vitais"):
+                conn = sqlite3.connect('nefroped_merces.db')
+                c = conn.cursor()
+                c.execute("INSERT INTO monitorizacao (paciente_id, data, hora, peso, pa, fc, fr, temp) VALUES (?,?,?,?,?,?,?,?)",
+                          (pac_id, d_sv.strftime("%d/%m/%Y"), h_sv, p_v, pa_v, fc_v, fr_v, t_v))
+                conn.commit()
+                conn.close()
+                st.success("Dados salvos!")
 
 # --- ABA 3: BUSCA E PDF ---
 with aba_busca:
-    nome_busca = st.text_input("Buscar paciente por nome").upper()
-    if nome_busca:
+    nome_b = st.text_input("Buscar por Nome").upper()
+    if nome_b:
         conn = sqlite3.connect('nefroped_merces.db')
-        dados = pd.read_sql(f"SELECT * FROM pacientes WHERE nome LIKE '%{nome_busca}%'", conn)
-        
-        if not dados.empty:
-            p_id = dados.iloc[0]['id']
-            st.write(f"### Dados de: {dados.iloc[0]['nome']}")
-            st.write(f"**Leito:** {dados.iloc[0]['leito']} | **SC:** {dados.iloc[0]['sc']:.2f} m²")
+        pac_data = pd.read_sql(f"SELECT * FROM pacientes WHERE nome LIKE '%{nome_b}%'", conn)
+        if not pac_data.empty:
+            p_id = pac_data.iloc[0]['id']
+            st.write(f"### {pac_data.iloc[0]['nome']}")
             
-            historico = pd.read_sql(f"SELECT * FROM monitorizacao WHERE paciente_id = {p_id} ORDER BY data DESC, hora ASC", conn)
-            st.table(historico[['data', 'hora', 'peso', 'pa', 'fc', 'fr', 'temp']])
+            hist = pd.read_sql(f"SELECT * FROM monitorizacao WHERE paciente_id = {p_id} ORDER BY data DESC, hora DESC", conn)
+            st.dataframe(hist[['data', 'hora', 'peso', 'pa', 'fc', 'fr', 'temp']])
             
-            # Gerar PDF
-            pdf_bytes = gerar_pdf(dados.iloc[0], historico)
-            st.download_button(label="📥 Gerar e Baixar PDF", 
-                               data=pdf_bytes, 
-                               file_name=f"Ficha_{dados.iloc[0]['nome']}.pdf", 
-                               mime="application/pdf")
-            
-            email_contato = st.text_input("Enviar para e-mail (opcional)")
-            if st.button("Enviar por E-mail"):
-                st.info("Funcionalidade de e-mail requer configuração de servidor SMTP. PDF disponível para download acima.")
-        else:
-            st.error("Paciente não encontrado.")
+            pdf_out = gerar_pdf(pac_data.iloc[0], hist)
+            st.download_button("📥 Baixar PDF da Ficha", data=pdf_out, file_name=f"Ficha_{nome_b}.pdf", mime="application/pdf")
         conn.close()
 
-# Sidebar de Alertas (Mantida)
+# Sidebar de Alertas
 with st.sidebar:
-    st.error("🚨 **Sinais de Alerta (Red Flags)**")
-    with st.expander("Quando chamar o Nefropediatra:"):
-        st.write("""
-        - **Oligúria/Anúria:** Débito urinário < 1 mL/kg/h.
-        - **Hematúria Macroscópica.**
-        - **Crise Hipertensiva.**
-        - **Abdome Agudo (PBE).**
-        """)
-        
+    st.error("🚨 **Sinais de Alerta**")
+    st.write("- Oligúria (< 1 mL/kg/h)\n- Hematúria Macroscópica\n- Crise Hipertensiva\n- Dor Abdominal (PBE)")
