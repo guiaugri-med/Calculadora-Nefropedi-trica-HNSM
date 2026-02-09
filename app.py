@@ -40,7 +40,7 @@ def gerar_pdf(p, hist):
     pdf.set_font("helvetica", size=10)
     
     # Identificação do Paciente conforme padrão solicitado
-    pdf.cell(0, 8, f"Nome do Doente: {p['nome']}", ln=True)
+    pdf.cell(0, 8, f"Nome do Paciente: {p['nome']}", ln=True)
     pdf.cell(0, 8, f"Leito: {p['leito']}", ln=True)
     pdf.cell(0, 8, f"Data de Admissão: {p['data_admissao']} | Peso na Admissão (Seco): {p['peso_seco']} kg | SC: {p['sc']:.2f} m2", ln=True)
     pdf.ln(5)
