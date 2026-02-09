@@ -181,5 +181,5 @@ with tab3:
 
 # Sidebar de Alertas
 with st.sidebar:
-    st.error("🚨 **Sinais de Alerta**")
+    st.error("🚨 **Sinais de Alerta - Quando chamar o Nefropediatra**")
     st.write("- Oligúria (< 1 mL/kg/h)\n- Hematúria Macroscópica\n- Crise Hipertensiva\n- Dor Abdominal (PBE)")
