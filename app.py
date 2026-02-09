@@ -10,16 +10,6 @@ st.caption("Fórmula de Schwartz Original (Método de Jaffé - Não IDMS)")
 with st.sidebar:
     st.header("📥 Dados do Paciente")
     
-    # Seleção da Categoria para definir K
-    categoria = st.selectbox(
-        "Categoria do Paciente (Definição de K)",
-        options=[
-            "RN Pré-termo (K=0.33)",
-            "RN a termo até 1 ano (K=0.45)",
-            "Criança / Adolescente Feminino (K=0.55)",
-            "Adolescente Masculino (K=0.70)"
-        ]
-    )
 
 with st.sidebar:
     st.divider()
@@ -36,15 +26,51 @@ with st.sidebar:
         """)
         
     
-    # Mapeamento da constante K conforme solicitado
-    mapa_k = {
-        "RN Pré-termo (K=0.33)": 0.33,
-        "RN a termo até 1 ano (K=0.45)": 0.45,
-        "Criança / Adolescente Feminino (K=0.55)": 0.55,
-        "Adolescente Masculino (K=0.70)": 0.70
-    }
-    k_escolhido = mapa_k[categoria]
+with st.sidebar:
+    st.header("📥 Dados do Paciente")
+    
+    # 1. Entrada de Idade Detalhada
+    st.write("**Idade do Paciente:**")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        anos = st.number_input("Anos", min_value=0, max_value=18, value=5)
+    with c2:
+        meses = st.number_input("Meses", min_value=0, max_value=11, value=0)
+    with c3:
+        dias = st.number_input("Dias", min_value=0, max_value=30, value=0)
 
+    # 2. Entrada de Sexo (Essencial para Adolescentes)
+    sexo = st.radio("Sexo Biológico", ["Feminino", "Masculino"])
+
+    # 3. Lógica Automática para K e Categoria
+    # Calculamos a idade total em meses para facilitar a lógica
+    idade_total_meses = (anos * 12) + meses
+
+    if idade_total_meses < 12:
+        # Se for menor de 1 ano, precisamos saber se foi prematuro
+        prematuro = st.toggle("Nasceu prematuro?")
+        if prematuro:
+            k_escolhido = 0.33
+            categoria = "RN Pré-termo"
+        else:
+            k_escolhido = 0.45
+            categoria = "RN a Termo até 1 ano"
+    else:
+        # Para maiores de 1 ano, a distinção é por sexo e idade (adolescência)
+        # Na fórmula original de Schwartz, k=0.70 é para rapazes adolescentes (geralmente > 13 anos)
+        if sexo == "Masculino" and anos >= 13:
+            k_escolhido = 0.70
+            categoria = "Adolescente Masculino"
+        else:
+            k_escolhido = 0.55
+            categoria = "Criança / Adolescente Feminino"
+
+    # Exibição da categoria definida automaticamente
+    st.info(f"**Categoria definida:** {categoria} (K = {k_escolhido})")
+
+    st.divider()
+    
+    # Restante das entradas
     peso = st.number_input("Peso Atual (kg)", min_value=1.0, value=20.0, step=0.1)
     estatura = st.number_input("Estatura (cm)", min_value=30.0, value=110.0, step=1.0)
     creatinina = st.number_input("Creatinina Sérica - Jaffé (mg/dL)", min_value=0.1, value=0.6, step=0.01)
