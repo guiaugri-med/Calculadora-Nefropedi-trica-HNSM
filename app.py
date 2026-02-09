@@ -46,7 +46,7 @@ def gerar_pdf(p, hist):
     pdf.ln(5)
     
     pdf.set_font("helvetica", 'B', 11)
-    pdf.cell(0, 10, "1. Controlo de Sinais Vitais e Antropometria", ln=True)
+    pdf.cell(0, 10, "1. Controle de Sinais Vitais e Antropometria", ln=True)
     pdf.set_font("helvetica", size=9)
     pdf.multi_cell(0, 5, "Monitorizar a Pressão Arterial (PA) pelo menos 3x ao dia devido ao risco de hipertensão associada à corticoterapia e doença renal.")
     pdf.ln(5)
@@ -75,7 +75,7 @@ def gerar_pdf(p, hist):
     return bytes(pdf.output())
 
 # --- INTERFACE ---
-st.title("🩺 Gestão de Síndrome Nefrótica - HNSM")
+st.title("🩺 Nefropediatria - HNSM")
 
 tab1, tab2, tab3 = st.tabs(["🔢 Cadastro e Cálculos", "📋 Monitorização Diária", "🔎 Histórico e PDF"])
 
@@ -83,7 +83,7 @@ tab1, tab2, tab3 = st.tabs(["🔢 Cadastro e Cálculos", "📋 Monitorização D
 with tab1:
     with st.form("cadastro"):
         col1, col2 = st.columns(2)
-        nome = col1.text_input("Nome do Doente").upper()
+        nome = col1.text_input("Nome do Paciente").upper()
         leito = col2.text_input("Leito")
         data_adm = st.date_input("Data de Admissão", value=datetime.now())
         
